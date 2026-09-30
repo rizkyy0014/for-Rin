@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pesan Akuh</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      touch-action: manipulation;
+    }
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, #FFE5EC 0%, #D0E1FD 50%, #FFC2D1 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .font-fredoka { font-family: 'Fredoka', cursive; }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.93);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 2px solid rgba(255, 182, 193, 0.6);
+      box-shadow: 0 10px 30px rgba(255, 105, 180, 0.2);
+    }
+
+    /* Animasi Tetesan Air */
+    .water-drop {
+      position: absolute;
+      width: 8px;
+      height: 12px;
+      background: #70d6ff;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      opacity: 0.8;
+      animation: dropFall 1.2s linear forwards;
+      pointer-events: none;
+    }
+
+    @keyframes dropFall {
+      0% { transform: translateY(0) scale(1); opacity: 0.9; }
+      100% { transform: translateY(120px) scale(0.3); opacity: 0; }
+    }
+
+    /* Draggable Fire Icon */
+    #fireTool {
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+    #fireTool:active { cursor: grabbing; }
+
+    /* Animasi Geser Lembaran Kertas */
+    .paper-stack {
+      perspective: 1000px;
+    }
+    .paper-card {
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s;
+      transform-style: preserve-3d;
+    }
+    .paper-card.slide-out {
+      transform: translateX(-120%) rotate(-10deg);
+      opacity: 0;
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 2s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 10px rgba(255, 105, 180, 0.4); }
+      100% { box-shadow: 0 0 25px rgba(255, 105, 180, 0.8); }
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-3 sm:p-4 text-slate-700 relative">
+
+  <!-- Audio Elements -->
+  <audio id="soundIceCat" src="Suara Kucing di Es.mp3" preload="auto"></audio>
+  <audio id="soundBlurCat" src="Suara Kucing Blur.mp3" preload="auto"></audio>
+  <audio id="soundYayy" src="Yayy.mp3" preload="auto"></audio>
+  <audio id="soundHappyMeow" src="Suara Meow Senang.mp3" preload="auto"></audio>
+
+  <!-- Container Utama -->
+  <main class="w-full max-w-md glass-card rounded-3xl p-5 sm:p-6 relative z-10 min-h-[540px] flex flex-col justify-between overflow-hidden">
+
+    <!-- HALAMAN 1: CAIRKAN KUCING DI ES -->
+    <section id="slide1" class="flex flex-col items-center text-center space-y-4 my-auto">
+      <span class="bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+        Hai aku Kucing!
+      </span>
+      <h1 class="text-xl sm:text-2xl font-bold font-fredoka text-pink-600">
+        Tolong Angetin Hati yg Dingin inii 🥶
+      </h1>
+      <p class="text-xs text-slate-600">
+        Usap atau tahan <span class="text-amber-500 font-bold">Api 🔥</span> di atas balok es sampai mencair!
+      </p>
+
+      <!-- Ice Area -->
+      <div class="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center my-2 select-none" id="iceContainer">
+        <!-- Gambar Kucing di Es -->
+        <div class="relative w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-blue-200 shadow-inner">
+          <img src="Kucing di Es.jpeg" alt="Kucing di Es" class="w-full h-full object-cover" id="imgCatIce">
+          <!-- Overlay Efek Beku / Cair -->
+          <div id="iceOverlay" class="absolute inset-0 bg-white/40 backdrop-blur-[2px] transition-all duration-300 pointer-events-none"></div>
+        </div>
+
+        <!-- Tetesan Air Container -->
+        <div id="waterContainer" class="absolute inset-0 pointer-events-none"></div>
+
+        <!-- Tool Api -->
+        <div id="fireTool" class="absolute -bottom-2 right-2 text-3xl sm:text-4xl bg-white/90 p-3 rounded-full shadow-lg border-2 border-amber-300 transform hover:scale-110 active:scale-95 transition-transform z-20 flex items-center justify-center">
+          🔥
+        </div>
+      </div>
+
+      <!-- Progress Bar Melt -->
+      <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
+        <div id="meltProgress" class="bg-gradient-to-r from-amber-400 to-rose-500 h-full w-0 transition-all duration-200"></div>
+      </div>
+
+      <button id="btnNext1" onclick="playSound('soundIceCat'); goToSlide(2)" class="hidden w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-fredoka font-bold py-3 px-6 rounded-2xl shadow-lg pulse-glow text-base sm:text-lg">
+        Lanjut Diselamatkan! 🐾 ➔
+      </button>
+    </section>
+
+    <!-- HALAMAN 2: KUCING BLUR -->
+    <section id="slide2" class="hidden flex-col items-center text-center space-y-4 my-auto">
+      <div class="w-48 h-48 sm:w-52 sm:h-52 rounded-2xl overflow-hidden border-4 border-pink-300 shadow-md">
+        <img src="Kucing Blur.jpeg" alt="Kucing Blur" class="w-full h-full object-cover">
+      </div>
+
+      <div class="space-y-2">
+        <h2 class="text-lg sm:text-xl font-bold font-fredoka text-pink-600">
+          Makasih Jirr 🐱❤️
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed bg-pink-50/80 p-3.5 rounded-2xl border border-pink-200">
+          "TAPI Kucing ini GAK MAU di LIAT KAMU kecuali KAMU LIHAT PESAN AKU dulu hehe"
+        </p>
+      </div>
+
+      <button onclick="playSound('soundBlurCat'); goToSlide(3)" class="w-full bg-gradient-to-r from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 text-white font-fredoka font-semibold py-3.5 px-6 rounded-2xl shadow-md flex items-center justify-center gap-2 text-base">
+        <span>Baca Pesan</span>
+        <span>✉️</span>
+      </button>
+    </section>
+
+    <!-- HALAMAN 3 & 4: SURAT ANIMASI GESER (2 HALAMAN) - TANPA SUARA -->
+    <section id="slide3" class="hidden flex-col items-center text-center space-y-4 my-auto">
+      <div class="flex items-center gap-2 text-xs font-bold text-pink-500">
+        <span>Halaman <span id="pageNumber">1</span> dari 2</span>
+      </div>
+
+      <!-- Paper Card Stack Container -->
+      <div class="w-full min-h-[260px] relative paper-stack">
+        
+        <!-- Lembaran 1 -->
+        <div id="paper1" class="paper-card absolute inset-0 bg-amber-50/90 border-2 border-amber-200 rounded-2xl p-5 shadow-md flex flex-col justify-between text-left">
+          <div class="space-y-3">
+            <span class="text-2xl">🌸 🐱</span>
+            <h3 class="text-base sm:text-lg font-bold font-fredoka text-pink-600">Kenapa Aku Suka Kamu?</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              Karena aku ngelihat kamu tuh pinter, sikapnya lumayan dewasa masih lumayan lah yaa~ belum sedewasa aku wkwk, aku juga suka cewek yang aktif dikegiatan positif, aku juga suka kamu pas lagi ngurus anak anak SMP itu kayak Lucu ajaa, tapi jujur aku sulit deket sama anak kecil jir, sama aku suka kamu karena cantiikk imut lucu clode breaddd
+            </p>
+          </div>
+          <p class="text-xs text-amber-600 italic font-semibold text-right">Geser / Klik Lanjut ➔</p>
+        </div>
+
+        <!-- Lembaran 2 -->
+        <div id="paper2" class="paper-card absolute inset-0 bg-pink-50/90 border-2 border-pink-200 rounded-2xl p-5 shadow-md flex flex-col justify-between text-left hidden">
+          <div class="space-y-3">
+            <span class="text-2xl">💙 🧸</span>
+            <h3 class="text-base sm:text-lg font-bold font-fredoka text-pink-600">Hal Yang Paling Aku Suka...</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              Kamu tuh orangnya bener bener dengerin cerita atau obrolan aku sama peduli bgt sama aku, sebenernya kalaupun kamu mau cerita ke aku terus juga gapapa daa aku juga anak tunggal butuh tempat ceritaa ✨
+            </p>
+          </div>
+          <p class="text-xs text-pink-600 italic font-semibold text-right">Siap ke Pertanyaan? 💕</p>
+        </div>
+
+      </div>
+
+      <button id="btnPaperNext" onclick="nextPaper()" class="w-full bg-gradient-to-r from-pink-400 to-rose-400 text-white font-fredoka font-semibold py-3 px-6 rounded-2xl shadow-md flex items-center justify-center gap-2">
+        <span>Buka Lembaran Berikutnya</span>
+        <span>📄➔</span>
+      </button>
+    </section>
+
+    <!-- HALAMAN 5: PERTANYAAN UTAMA & KONFIRMASI - TANPA SUARA -->
+    <section id="slide4" class="hidden flex-col items-center text-center space-y-4 my-auto">
+      <div class="text-4xl animate-bounce">😻💖</div>
+      
+      <div class="space-y-2">
+        <h2 id="finalTitle" class="text-xl sm:text-2xl font-bold font-fredoka text-pink-600">
+          Aku Suka Kamu! 
+        </h2>
+        <p id="finalDesc" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          Kamu mau gak jadi kesayangan aku? 🌸
+        </p>
+      </div>
+
+      <!-- Option Buttons -->
+      <div class="w-full flex flex-col gap-3 pt-2" id="optionArea">
+        <button id="btnYes" onclick="acceptLove()" class="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-fredoka font-bold py-3.5 px-6 rounded-2xl shadow-lg text-base sm:text-lg transform active:scale-95 transition-transform">
+          Iya, Mau Banget! 💖
+        </button>
+
+        <button id="btnNo" onclick="confirmReject()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-fredoka font-medium py-3 px-6 rounded-2xl border border-slate-300 text-xs sm:text-sm transition-all">
+          Maaf yah... 😢
+        </button>
+      </div>
+    </section>
+
+    <!-- HALAMAN REAKSI DITERIMA (KUCING MANGAP) - DENGAN SUARA YAYY & MEOW SENANG -->
+    <section id="slideAccepted" class="hidden flex-col items-center text-center space-y-4 my-auto">
+      <div class="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-pink-400 shadow-xl">
+        <img src="Kucing Mangap.jpeg" alt="Kucing Mangap Happy" class="w-full h-full object-cover">
+      </div>
+
+      <div class="space-y-2">
+        <h2 class="text-xl sm:text-2xl font-bold font-fredoka text-pink-600">
+          SIAPA SANGKA KAMU NERIMA AKU!! 😻✨🎉
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-600 bg-pink-50 p-3 rounded-xl border border-pink-200">
+          Angjay diterima, Kirim ke WhatsApp aja jir 📲💕
+        </p>
+      </div>
+
+      <a id="waAcceptBtn" href="#" target="_blank" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-fredoka font-bold py-3.5 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 text-base sm:text-lg">
+        <span>Kirim Pesan ke WA 📲</span>
+      </a>
+    </section>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // ⚙️ PENGATURAN NOMOR WHATSAPP KAMU DI SINI
+    // ==========================================
+    const NOMOR_WA = "628995764707"; // Nomor WhatsApp kamu (Gunakan kode 62)
+    // ==========================================
+
+    let meltPercent = 0;
+    let paperIndex = 1;
+    let rejectConfirmCount = 0;
+
+    // --- AUDIO HELPER FUNCTION ---
+    function playSound(audioId) {
+      const audio = document.getElementById(audioId);
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(e => console.log('Autoplay prevented:', audioId));
+      }
+    }
+
+    // --- NAVIGATION ---
+    function goToSlide(slideNum) {
+      document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+      document.getElementById(`slide${slideNum}`).classList.remove('hidden');
+      document.getElementById(`slide${slideNum}`).classList.add('flex');
+    }
+
+    // --- MELTING ICE LOGIC ---
+    const fireTool = document.getElementById('fireTool');
+    const iceContainer = document.getElementById('iceContainer');
+    const iceOverlay = document.getElementById('iceOverlay');
+    const meltProgress = document.getElementById('meltProgress');
+    const waterContainer = document.getElementById('waterContainer');
+
+    function triggerMelt() {
+      if (meltPercent >= 100) return;
+
+      meltPercent += 2.5;
+      meltProgress.style.width = meltPercent + '%';
+      iceOverlay.style.opacity = (1 - (meltPercent / 100)).toString();
+
+      // Spawn drops
+      if (Math.random() > 0.3) {
+        const drop = document.createElement('div');
+        drop.className = 'water-drop';
+        drop.style.left = (Math.random() * 80 + 10) + '%';
+        drop.style.top = (Math.random() * 40 + 40) + '%';
+        waterContainer.appendChild(drop);
+        setTimeout(() => drop.remove(), 1200);
+      }
+
+      if (meltPercent >= 100) {
+        document.getElementById('btnNext1').classList.remove('hidden');
+        fireTool.style.display = 'none';
+        playSound('soundIceCat');
+      }
+    }
+
+    // Touch & Drag Events
+    function handleTouchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = iceContainer.getBoundingClientRect();
+
+      if (
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom
+      ) {
+        triggerMelt();
+      }
+    }
+
+    fireTool.addEventListener('touchmove', handleTouchMove, { passive: false });
+    fireTool.addEventListener('mousemove', (e) => {
+      if (e.buttons === 1) triggerMelt();
+    });
+    fireTool.addEventListener('click', () => {
+      for (let i = 0; i < 6; i++) triggerMelt();
+    });
+
+    // --- PAPER SLIDE ANIMATION (TANPA SUARA) ---
+    function nextPaper() {
+      if (paperIndex === 1) {
+        const paper1 = document.getElementById('paper1');
+        const paper2 = document.getElementById('paper2');
+
+        paper1.classList.add('slide-out');
+        setTimeout(() => {
+          paper1.classList.add('hidden');
+          paper2.classList.remove('hidden');
+          document.getElementById('pageNumber').innerText = "2";
+          document.getElementById('btnPaperNext').innerHTML = "<span>Lanjut ke Pertanyaan Utama</span> 🌸➔";
+          paperIndex = 2;
+        }, 400);
+      } else {
+        goToSlide(4);
+      }
+    }
+
+    // --- REJECT / ACCEPT CONFIRMATION ---
+    function confirmReject() {
+      rejectConfirmCount++;
+      const btnNo = document.getElementById('btnNo');
+      const btnYes = document.getElementById('btnYes');
+      const finalTitle = document.getElementById('finalTitle');
+      const finalDesc = document.getElementById('finalDesc');
+
+      if (rejectConfirmCount === 1) {
+        finalTitle.innerText = "Pliss terima atuhh *nada plis... 🥺";
+        finalDesc.innerText = "Bejir ditolak lagih? Pikirin sekali lagi dech... 🐱❤️";
+        btnNo.innerText = "Yakin dek? 😢";
+        btnYes.style.transform = "scale(1.1)";
+      } else if (rejectConfirmCount === 2) {
+        finalTitle.innerText = "Beneran kah? 😿";
+        finalDesc.innerText = "Sedih aku jirrr";
+        btnNo.innerText = "Iya, Maaf ya... (Kirim WA)";
+        btnYes.style.transform = "scale(1.2)";
+      } else {
+        // Kirim Pesan Maaf ke WA
+        const textMaaf = encodeURIComponent("Hai... Maaf yah, makasih banyak udah nyiapin web ini..");
+        window.open(`https://wa.me/${NOMOR_WA}?text=${textMaaf}`, '_blank');
+      }
+    }
+
+    function acceptLove() {
+      // Mainkan kedua-dua bunyi serentak
+      playSound('soundYayy');
+      playSound('soundHappyMeow');
+      
+      goToSlide('Accepted');
+
+      // Confetti Blast
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#FF69B4', '#FFB6C1', '#A0C4FF', '#FF1493']
+        });
+      }
+
+      // Link WA Diterima
+      const textMau = encodeURIComponent("Aku udah baca semuanya.., aku mau kok jadi kesayangan kamu");
+      document.getElementById('waAcceptBtn').href = `https://wa.me/${NOMOR_WA}?text=${textMau}`;
+    }
+  </script>
+</body>
+</html>
